@@ -1,796 +1,1487 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>VectorShift</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #080c14;
-    --panel: #0e1525;
-    --tile: #151d30;
-    --tile-border: #1e2d4a;
-    --text: #e8f4fd;
-    --muted: #5a7a9a;
-    --selected: #4fc3f7;
-    --add-color: #00e676;
-    --sub-color: #ff5252;
-    --mul-color: #448aff;
-    --div-color: #ffd740;
-    --tile-radius: 16px;
-    --gap: 10px;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Rajdhani', sans-serif;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(79,195,247,0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(79,195,247,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .wrapper {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 420px;
-    padding: 20px 16px 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-  }
-
-  header { text-align: center; width: 100%; }
-
-  .game-title {
-    font-family: 'Orbitron', monospace;
-    font-size: clamp(1.6rem, 6vw, 2.2rem);
-    font-weight: 900;
-    letter-spacing: 4px;
-    background: linear-gradient(135deg, #4fc3f7, #00e676);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    filter: drop-shadow(0 0 20px rgba(79,195,247,0.4));
-  }
-  .game-subtitle {
-    font-size: 0.75rem;
-    color: var(--muted);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
-
-  .level-bar { display: flex; gap: 8px; align-items: center; }
-  .level-btn {
-    background: var(--panel);
-    border: 1px solid var(--tile-border);
-    color: var(--muted);
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 2px;
-    padding: 6px 14px;
-    border-radius: 20px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
-  }
-  .level-btn:active { transform: scale(0.95); }
-  .level-btn.active { background: var(--selected); border-color: var(--selected); color: var(--bg); }
-
-  .target-panel {
-    background: var(--panel);
-    border: 1px solid var(--tile-border);
-    border-radius: 16px;
-    padding: 12px 28px;
-    text-align: center;
-    width: 100%;
-    position: relative;
-    overflow: hidden;
-  }
-  .target-panel::after {
-    content: '';
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #4fc3f7, transparent);
-  }
-  .target-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; }
-  .target-number {
-    font-family: 'Orbitron', monospace;
-    font-size: clamp(1.8rem, 7vw, 2.5rem);
-    font-weight: 700;
-    color: #4fc3f7;
-    line-height: 1.1;
-    filter: drop-shadow(0 0 12px rgba(79,195,247,0.6));
-  }
-
-  /* Legend */
-  .legend {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    width: 100%;
-  }
-  .legend-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    background: var(--panel);
-    border: 1px solid var(--tile-border);
-    border-radius: 10px;
-    padding: 7px 4px;
-  }
-  .legend-arrow { font-size: 1.2rem; line-height: 1; }
-  .legend-op { font-size: 0.9rem; font-weight: 700; }
-  .legend-dir { font-size: 0.58rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
-  .add-clr { color: var(--add-color); }
-  .sub-clr { color: var(--sub-color); }
-  .mul-clr { color: var(--mul-color); }
-  .div-clr { color: var(--div-color); }
-
-  /* ── BOARD ── */
-  .board-wrap { width: 100%; position: relative; }
-
-  #board {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--gap);
-    width: 100%;
-    aspect-ratio: 1;
-  }
-
-  .cell {
-    border-radius: var(--tile-radius);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    position: relative;
-    transition: transform 0.12s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
-    user-select: none;
-    -webkit-user-select: none;
-    /* Ensure big tap target */
-    min-height: 0;
-  }
-
-  .cell.empty {
-    background: var(--tile);
-    border: 2px dashed rgba(79,195,247,0.1);
-    cursor: default;
-  }
-
-  .cell.tile {
-    background: var(--tile);
-    border: 2px solid var(--tile-border);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
-  }
-
-  .cell.tile .num {
-    font-family: 'Orbitron', monospace;
-    font-size: clamp(1.3rem, 4.5vw, 1.9rem);
-    font-weight: 700;
-    color: var(--text);
-    pointer-events: none;
-  }
-
-  .cell.tile.selected {
-    border-color: var(--selected);
-    box-shadow: 0 0 0 3px rgba(79,195,247,0.3), 0 0 24px rgba(79,195,247,0.35), 0 4px 12px rgba(0,0,0,0.4);
-    transform: scale(1.07);
-    z-index: 2;
-  }
-
-  /* ── Chess-style move dots on empty cells ── */
-  .cell.can-move-here {
-    cursor: pointer;
-    background: rgba(79,195,247,0.06);
-    border: 2px solid rgba(79,195,247,0.3);
-    animation: pulse-dot 1s ease infinite;
-  }
-  .cell.can-move-here::after {
-    content: '';
-    width: 28%;
-    height: 28%;
-    border-radius: 50%;
-    background: rgba(79,195,247,0.45);
-    box-shadow: 0 0 10px rgba(79,195,247,0.6);
-  }
-  @keyframes pulse-dot {
-    0%,100% { box-shadow: 0 0 0 0 rgba(79,195,247,0.15); }
-    50%      { box-shadow: 0 0 0 6px rgba(79,195,247,0.06); }
-  }
-
-  /* ── Colored op badges on adjacent TILE targets ── */
-  .cell.op-add  { border-color: var(--add-color) !important; background: rgba(0,230,118,0.08) !important; }
-  .cell.op-sub  { border-color: var(--sub-color) !important; background: rgba(255,82,82,0.08) !important; }
-  .cell.op-mul  { border-color: var(--mul-color) !important; background: rgba(68,138,255,0.08) !important; }
-  .cell.op-div  { border-color: var(--div-color) !important; background: rgba(255,215,64,0.08) !important; }
-
-  /* Op badge label shown on the adjacent tile */
-  .op-badge {
-    position: absolute;
-    top: 4px; right: 5px;
-    font-size: clamp(0.6rem, 2vw, 0.75rem);
-    font-weight: 900;
-    font-family: 'Orbitron', monospace;
-    pointer-events: none;
-    z-index: 3;
-    line-height: 1;
-  }
-  .op-badge.add { color: var(--add-color); text-shadow: 0 0 6px var(--add-color); }
-  .op-badge.sub { color: var(--sub-color); text-shadow: 0 0 6px var(--sub-color); }
-  .op-badge.mul { color: var(--mul-color); text-shadow: 0 0 6px var(--mul-color); }
-  .op-badge.div { color: var(--div-color); text-shadow: 0 0 6px var(--div-color); }
-
-  /* Preview result label */
-  .preview-val {
-    position: absolute;
-    bottom: 4px;
-    left: 0; right: 0;
-    text-align: center;
-    font-family: 'Orbitron', monospace;
-    font-size: clamp(0.55rem, 1.8vw, 0.68rem);
-    font-weight: 700;
-    opacity: 0.75;
-    pointer-events: none;
-  }
-
-  /* Flash merge animations */
-  @keyframes flash-add { 0%{background:rgba(0,230,118,0.65);box-shadow:0 0 30px rgba(0,230,118,0.9);}100%{background:var(--tile);} }
-  @keyframes flash-sub { 0%{background:rgba(255,82,82,0.65);box-shadow:0 0 30px rgba(255,82,82,0.9);}100%{background:var(--tile);} }
-  @keyframes flash-mul { 0%{background:rgba(68,138,255,0.65);box-shadow:0 0 30px rgba(68,138,255,0.9);}100%{background:var(--tile);} }
-  @keyframes flash-div { 0%{background:rgba(255,215,64,0.65);box-shadow:0 0 30px rgba(255,215,64,0.9);}100%{background:var(--tile);} }
-  .cell.flash-add { animation: flash-add 0.5s ease forwards; }
-  .cell.flash-sub { animation: flash-sub 0.5s ease forwards; }
-  .cell.flash-mul { animation: flash-mul 0.5s ease forwards; }
-  .cell.flash-div { animation: flash-div 0.5s ease forwards; }
-
-  @keyframes shake {
-    0%,100%{transform:translateX(0) scale(1.07);}
-    20%{transform:translateX(-8px) scale(1.07);}
-    40%{transform:translateX(8px) scale(1.07);}
-    60%{transform:translateX(-6px) scale(1.07);}
-    80%{transform:translateX(6px) scale(1.07);}
-  }
-  .cell.shake { animation: shake 0.4s ease; border-color: var(--sub-color) !important; }
-
-  /* Stats */
-  .stats-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-  }
-  .stat { text-align: center; flex: 1; }
-  .stat-val {
-    font-family: 'Orbitron', monospace;
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .stat-label { font-size: 0.62rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
-  .stat-divider { width: 1px; height: 34px; background: var(--tile-border); }
-
-  #msg {
-    font-size: 0.78rem;
-    color: var(--muted);
-    letter-spacing: 0.5px;
-    text-align: center;
-    min-height: 1.2em;
-    transition: color 0.2s;
-  }
-  #msg.err { color: var(--sub-color); }
-  #msg.ok  { color: var(--add-color); }
-
-  .btn-row { display: flex; gap: 10px; width: 100%; }
-  .btn {
-    flex: 1;
-    padding: 13px;
-    border: 1px solid var(--tile-border);
-    border-radius: 12px;
-    background: var(--panel);
-    color: var(--muted);
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 0.88rem;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.18s;
-  }
-  .btn:active { transform: scale(0.97); }
-  .btn:hover  { border-color: var(--selected); color: var(--selected); background: rgba(79,195,247,0.05); }
-  .btn.primary { border-color: var(--add-color); color: var(--add-color); }
-  .btn.primary:hover { background: rgba(0,230,118,0.08); box-shadow: 0 0 16px rgba(0,230,118,0.2); }
-
-  /* Win overlay */
-  #win-overlay {
-    position: fixed; inset: 0;
-    background: rgba(8,12,20,0.92);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    backdrop-filter: blur(8px);
-    gap: 18px;
-    padding: 24px;
-  }
-  #win-overlay.show { display: flex; }
-  .win-icon { font-size: 3.5rem; animation: bounce 0.6s ease infinite alternate; }
-  @keyframes bounce { from{transform:translateY(0) scale(1);} to{transform:translateY(-12px) scale(1.06);} }
-  .win-title {
-    font-family: 'Orbitron', monospace;
-    font-size: clamp(1.7rem, 7vw, 2.4rem);
-    font-weight: 900;
-    background: linear-gradient(135deg, #00e676, #4fc3f7);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-align: center;
-    filter: drop-shadow(0 0 18px rgba(0,230,118,0.5));
-  }
-  .win-stats {
-    background: var(--panel);
-    border: 1px solid var(--tile-border);
-    border-radius: 16px;
-    padding: 14px 30px;
-    text-align: center;
-  }
-  .win-stats .stat-val { font-size: 2rem; color: #4fc3f7; }
-
-  /* Confetti */
-  .confetti-wrap { position: fixed; inset: 0; pointer-events: none; z-index: 99; overflow: hidden; }
-  .confetti-piece {
-    position: absolute;
-    width: 8px; height: 8px;
-    border-radius: 2px;
-    animation: confetti-fall linear forwards;
-  }
-  @keyframes confetti-fall {
-    0%  { transform: translateY(-20px) rotate(0deg);   opacity: 1; }
-    100%{ transform: translateY(100vh) rotate(720deg); opacity: 0; }
-  }
-
-  @media (max-width: 360px) {
-    .wrapper { padding: 12px 8px 20px; gap: 10px; }
-    :root { --gap: 7px; --tile-radius: 12px; }
-  }
-</style>
-</head>
-<body>
-<div class="wrapper">
-  <header>
-    <div class="game-title">VECTORSHIFT</div>
-    <div class="game-subtitle">Direction is everything</div>
-  </header>
-
-  <div class="level-bar">
-    <button class="level-btn active" onclick="loadLevel(0)">L1</button>
-    <button class="level-btn" onclick="loadLevel(1)">L2</button>
-    <button class="level-btn" onclick="loadLevel(2)">L3</button>
-    <button class="level-btn" onclick="loadLevel(3)">L4</button>
-    <button class="level-btn" onclick="loadLevel(4)">L5</button>
-  </div>
-
-  <div class="target-panel">
-    <div class="target-label">Target Number</div>
-    <div class="target-number" id="target-display">24</div>
-  </div>
-
-  <div class="legend">
-    <div class="legend-item">
-      <div class="legend-arrow add-clr">→</div>
-      <div class="legend-op add-clr">+</div>
-      <div class="legend-dir">Addition</div>
-    </div>
-    <div class="legend-item">
-      <div class="legend-arrow sub-clr">←</div>
-      <div class="legend-op sub-clr">−</div>
-      <div class="legend-dir">Subtract</div>
-    </div>
-    <div class="legend-item">
-      <div class="legend-arrow mul-clr">↓</div>
-      <div class="legend-op mul-clr">×</div>
-      <div class="legend-dir">Multiply</div>
-    </div>
-    <div class="legend-item">
-      <div class="legend-arrow div-clr">↑</div>
-      <div class="legend-op div-clr">÷</div>
-      <div class="legend-dir">Divide</div>
-    </div>
-  </div>
-
-  <div class="board-wrap">
-    <div id="board"></div>
-  </div>
-
-  <div class="stats-bar">
-    <div class="stat">
-      <div class="stat-val" id="moves-display">0</div>
-      <div class="stat-label">Moves</div>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat">
-      <div class="stat-val" id="tiles-display">4</div>
-      <div class="stat-label">Tiles Left</div>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat">
-      <div class="stat-val" id="best-display">—</div>
-      <div class="stat-label">Best</div>
-    </div>
-  </div>
-
-  <div id="msg">Tap any numbered tile to select it.</div>
-
-  <div class="btn-row">
-    <button class="btn" onclick="undoMove()">↩ Undo</button>
-    <button class="btn primary" onclick="resetBoard()">↺ Reset</button>
-  </div>
-</div>
-
-<div id="win-overlay">
-  <div class="win-icon">⚡</div>
-  <div class="win-title">Level Cleared!</div>
-  <div class="win-stats">
-    <div class="stat-val" id="win-moves">0</div>
-    <div class="stat-label">Moves Used</div>
-  </div>
-  <div class="btn-row" style="max-width:300px;">
-    <button class="btn" onclick="closeWin()">↺ Retry</button>
-    <button class="btn primary" onclick="nextLevel()">Next →</button>
-  </div>
-</div>
-
-<div class="confetti-wrap" id="confetti"></div>
-
-<script>
-// ─── LEVELS ────────────────────────────────────────────────────────────────
-const LEVELS = [
-  { name:"Level 1", target:24,
-    grid:[[6,2,null],[3,null,null],[2,null,null]],
-    hint:"Tap a tile to select it, then tap where to send it." },
-  { name:"Level 2", target:15,
-    grid:[[5,3,null],[null,4,null],[2,null,1]],
-    hint:"Reach 15 — combine carefully." },
-  { name:"Level 3", target:100,
-    grid:[[10,2,null],[5,null,3],[null,4,null]],
-    hint:"Large target — multiply early!" },
-  { name:"Level 4", target:7,
-    grid:[[14,3,null],[2,5,null],[null,1,4]],
-    hint:"Division is your friend here." },
-  { name:"Level 5", target:36,
-    grid:[[9,4,2],[3,null,6],[null,5,null]],
-    hint:"Hardest one — plan 4 steps ahead!" }
-];
-
-// ─── STATE ──────────────────────────────────────────────────────────────────
-let currentLevel = 0;
-let grid = [];
-let selected = null;   // {r,c} or null
-let moves = 0;
-let history = [];
-let bests = {};
-
-// ─── INIT ───────────────────────────────────────────────────────────────────
-function loadLevel(idx) {
-  currentLevel = idx;
-  document.querySelectorAll('.level-btn').forEach((b,i)=>b.classList.toggle('active', i===idx));
-  resetBoard();
-}
-
-function resetBoard() {
-  const lvl = LEVELS[currentLevel];
-  grid = lvl.grid.map(row=>[...row]);
-  selected = null;
-  moves = 0;
-  history = [];
-  document.getElementById('target-display').textContent = lvl.target;
-  setMsg(lvl.hint);
-  render();
-  updateStats();
-  document.getElementById('win-overlay').classList.remove('show');
-  clearConfetti();
-}
-
-// ─── OP LOGIC ────────────────────────────────────────────────────────────────
-// Given the moving tile is at (fr,fc) and destination is (tr,tc),
-// returns {opKey, opLabel, result, valid}
-// opKey: 'add'|'sub'|'mul'|'div'
-function calcOp(movingVal, destVal, dr, dc) {
-  if (dc === 1)  { // right → add
-    return { opKey:'add', sym:'+', result: destVal + movingVal, valid:true };
-  }
-  if (dc === -1) { // left → sub
-    return { opKey:'sub', sym:'−', result: destVal - movingVal, valid:true };
-  }
-  if (dr === 1)  { // down → mul
-    return { opKey:'mul', sym:'×', result: destVal * movingVal, valid:true };
-  }
-  if (dr === -1) { // up → div
-    const valid = (destVal % movingVal === 0);
-    return { opKey:'div', sym:'÷', result: valid ? destVal/movingVal : null, valid };
-  }
-}
-
-// ─── RENDER ─────────────────────────────────────────────────────────────────
-function render() {
-  const board = document.getElementById('board');
-  board.innerHTML = '';
-
-  // Precompute adjacency info for selected tile
-  let adjInfo = {}; // key "r,c" → {opKey, sym, result, valid, isEmpty}
-  if (selected) {
-    const {r, c} = selected;
-    const movingVal = grid[r][c];
-    [[r-1,c,-1,0],[r+1,c,1,0],[r,c-1,0,-1],[r,c+1,0,1]].forEach(([ar,ac,dr,dc])=>{
-      if (ar<0||ar>=3||ac<0||ac>=3) return;
-      const destVal = grid[ar][ac];
-      const isEmpty = (destVal === null);
-      let info = { isEmpty };
-      if (!isEmpty) {
-        Object.assign(info, calcOp(movingVal, destVal, dr, dc));
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>VectorShift</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #080c14;
+        --panel: #0e1525;
+        --tile: #151d30;
+        --tile-border: #1e2d4a;
+        --text: #e8f4fd;
+        --muted: #5a7a9a;
+        --selected: #4fc3f7;
+        --add-color: #00e676;
+        --sub-color: #ff5252;
+        --mul-color: #448aff;
+        --div-color: #ffd740;
+        --tile-radius: 12px;
+        --gap: 8px;
       }
-      adjInfo[`${ar},${ac}`] = info;
-    });
-  }
 
-  for (let r=0; r<3; r++) {
-    for (let c=0; c<3; c++) {
-      const val = grid[r][c];
-      const cell = document.createElement('div');
-      cell.dataset.r = r;
-      cell.dataset.c = c;
-      cell.classList.add('cell');
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
 
-      const key = `${r},${c}`;
-      const isSelected = selected && selected.r===r && selected.c===c;
-      const adjData = adjInfo[key];
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Rajdhani", sans-serif;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        overflow-x: hidden;
+        position: relative;
+      }
 
-      if (val === null) {
-        cell.classList.add('empty');
-        if (adjData && adjData.isEmpty) {
-          // Empty adjacent cell — show chess dot
-          cell.classList.add('can-move-here');
-          cell.classList.remove('empty'); // override dashed border
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(79, 195, 247, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(79, 195, 247, 0.04) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .wrapper {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 440px;
+        padding: 16px 16px 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+
+      /* Header & Top Bar */
+      .top-bar {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: -4px;
+      }
+      .map-btn {
+        background: rgba(79, 195, 247, 0.1);
+        border: 1px solid var(--selected);
+        color: var(--selected);
+        font-family: "Rajdhani", sans-serif;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        cursor: pointer;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+      }
+      .map-btn:active {
+        transform: scale(0.95);
+      }
+      .progress-counter {
+        font-family: "Orbitron", monospace;
+        font-size: 0.95rem;
+        color: var(--text);
+        letter-spacing: 1px;
+        background: var(--panel);
+        border: 1px solid var(--tile-border);
+        padding: 4px 12px;
+        border-radius: 20px;
+      }
+      .progress-counter span {
+        color: var(--add-color);
+      }
+
+      header {
+        text-align: center;
+        width: 100%;
+      }
+      .game-title {
+        font-family: "Orbitron", monospace;
+        font-size: clamp(1.4rem, 5.5vw, 2rem);
+        font-weight: 900;
+        letter-spacing: 4px;
+        background: linear-gradient(135deg, #4fc3f7, #00e676);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 0 15px rgba(79, 195, 247, 0.3));
+      }
+
+      /* Target Panel */
+      .target-panel {
+        background: var(--panel);
+        border: 1px solid var(--tile-border);
+        border-radius: 16px;
+        padding: 10px 24px;
+        text-align: center;
+        width: 100%;
+        position: relative;
+        overflow: hidden;
+      }
+      .target-panel::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #4fc3f7, transparent);
+      }
+      .target-label {
+        font-size: 0.65rem;
+        color: var(--muted);
+        letter-spacing: 3px;
+        text-transform: uppercase;
+      }
+      .target-number {
+        font-family: "Orbitron", monospace;
+        font-size: clamp(1.8rem, 6vw, 2.2rem);
+        font-weight: 700;
+        color: #4fc3f7;
+        line-height: 1.1;
+        filter: drop-shadow(0 0 12px rgba(79, 195, 247, 0.6));
+      }
+
+      /* Legend */
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        width: 100%;
+      }
+      .legend-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        background: var(--panel);
+        border: 1px solid var(--tile-border);
+        border-radius: 10px;
+        padding: 6px 2px;
+      }
+      .legend-arrow {
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+      .legend-op {
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+      .legend-dir {
+        font-size: 0.55rem;
+        color: var(--muted);
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .add-clr {
+        color: var(--add-color);
+      }
+      .sub-clr {
+        color: var(--sub-color);
+      }
+      .mul-clr {
+        color: var(--mul-color);
+      }
+      .div-clr {
+        color: var(--div-color);
+      }
+
+      /* ── BOARD ── */
+      .board-wrap {
+        width: 100%;
+        position: relative;
+      }
+
+      #board {
+        display: grid;
+        grid-template-columns: repeat(var(--cols, 3), 1fr);
+        gap: var(--gap);
+        width: 100%;
+        aspect-ratio: 1;
+      }
+
+      .cell {
+        border-radius: var(--tile-radius);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        position: relative;
+        transition:
+          transform 0.12s,
+          box-shadow 0.15s,
+          border-color 0.15s,
+          background 0.15s;
+        user-select: none;
+        -webkit-user-select: none;
+        min-height: 0;
+      }
+
+      .cell.empty {
+        background: var(--tile);
+        border: 2px dashed rgba(79, 195, 247, 0.1);
+        cursor: default;
+      }
+
+      .cell.tile {
+        background: var(--tile);
+        border: 2px solid var(--tile-border);
+        box-shadow:
+          0 4px 12px rgba(0, 0, 0, 0.4),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+
+      .cell.tile .num {
+        font-family: "Orbitron", monospace;
+        font-weight: 700;
+        color: var(--text);
+        pointer-events: none;
+      }
+      .board-wrap[data-cols="3"] .cell.tile .num {
+        font-size: clamp(1.3rem, 4.5vw, 1.9rem);
+      }
+      .board-wrap[data-cols="4"] .cell.tile .num {
+        font-size: clamp(1rem, 3.5vw, 1.4rem);
+      }
+      .board-wrap[data-cols="5"] .cell.tile .num {
+        font-size: clamp(0.85rem, 2.5vw, 1.1rem);
+      }
+
+      .cell.tile.selected {
+        border-color: var(--selected);
+        box-shadow:
+          0 0 0 3px rgba(79, 195, 247, 0.3),
+          0 0 24px rgba(79, 195, 247, 0.35),
+          0 4px 12px rgba(0, 0, 0, 0.4);
+        transform: scale(1.07);
+        z-index: 2;
+      }
+
+      .cell.can-move-here {
+        cursor: pointer;
+        background: rgba(79, 195, 247, 0.06);
+        border: 2px solid rgba(79, 195, 247, 0.3);
+        animation: pulse-dot 1s ease infinite;
+      }
+      .cell.can-move-here::after {
+        content: "";
+        width: 28%;
+        height: 28%;
+        border-radius: 50%;
+        background: rgba(79, 195, 247, 0.45);
+        box-shadow: 0 0 10px rgba(79, 195, 247, 0.6);
+      }
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(79, 195, 247, 0.15);
         }
-      } else {
-        cell.classList.add('tile');
+        50% {
+          box-shadow: 0 0 0 6px rgba(79, 195, 247, 0.06);
+        }
+      }
 
-        if (isSelected) {
-          cell.classList.add('selected');
-        } else if (adjData && !adjData.isEmpty) {
-          // Occupied adjacent — show op color
-          const {opKey, sym, result, valid} = adjData;
-          cell.classList.add(`op-${opKey}`);
+      .cell.op-add {
+        border-color: var(--add-color) !important;
+        background: rgba(0, 230, 118, 0.08) !important;
+      }
+      .cell.op-sub {
+        border-color: var(--sub-color) !important;
+        background: rgba(255, 82, 82, 0.08) !important;
+      }
+      .cell.op-mul {
+        border-color: var(--mul-color) !important;
+        background: rgba(68, 138, 255, 0.08) !important;
+      }
+      .cell.op-div {
+        border-color: var(--div-color) !important;
+        background: rgba(255, 215, 64, 0.08) !important;
+      }
 
-          // Op badge (top-right corner symbol)
-          const badge = document.createElement('div');
-          badge.classList.add('op-badge', opKey);
-          badge.textContent = sym;
-          cell.appendChild(badge);
+      .op-badge {
+        position: absolute;
+        top: 4px;
+        right: 5px;
+        font-size: 0.7rem;
+        font-weight: 900;
+        font-family: "Orbitron", monospace;
+        pointer-events: none;
+        z-index: 3;
+        line-height: 1;
+      }
+      .board-wrap[data-cols="5"] .op-badge {
+        font-size: 0.55rem;
+        top: 2px;
+        right: 3px;
+      }
 
-          // Preview result (bottom center)
-          if (valid && result !== null) {
-            const preview = document.createElement('div');
-            preview.classList.add('preview-val');
-            preview.style.color = getComputedStyle(document.documentElement).getPropertyValue(`--${opKey}-color`);
-            preview.textContent = `= ${result}`;
-            cell.appendChild(preview);
-          } else if (!valid) {
-            const preview = document.createElement('div');
-            preview.classList.add('preview-val');
-            preview.style.color = 'var(--sub-color)';
-            preview.textContent = '✕';
-            cell.appendChild(preview);
+      .op-badge.add {
+        color: var(--add-color);
+        text-shadow: 0 0 6px var(--add-color);
+      }
+      .op-badge.sub {
+        color: var(--sub-color);
+        text-shadow: 0 0 6px var(--sub-color);
+      }
+      .op-badge.mul {
+        color: var(--mul-color);
+        text-shadow: 0 0 6px var(--mul-color);
+      }
+      .op-badge.div {
+        color: var(--div-color);
+        text-shadow: 0 0 6px var(--div-color);
+      }
+
+      .preview-val {
+        position: absolute;
+        bottom: 4px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-family: "Orbitron", monospace;
+        font-size: 0.65rem;
+        font-weight: 700;
+        opacity: 0.75;
+        pointer-events: none;
+      }
+      .board-wrap[data-cols="5"] .preview-val {
+        font-size: 0.5rem;
+        bottom: 2px;
+      }
+
+      @keyframes flash-add {
+        0% {
+          background: rgba(0, 230, 118, 0.65);
+          box-shadow: 0 0 30px rgba(0, 230, 118, 0.9);
+        }
+        100% {
+          background: var(--tile);
+        }
+      }
+      @keyframes flash-sub {
+        0% {
+          background: rgba(255, 82, 82, 0.65);
+          box-shadow: 0 0 30px rgba(255, 82, 82, 0.9);
+        }
+        100% {
+          background: var(--tile);
+        }
+      }
+      @keyframes flash-mul {
+        0% {
+          background: rgba(68, 138, 255, 0.65);
+          box-shadow: 0 0 30px rgba(68, 138, 255, 0.9);
+        }
+        100% {
+          background: var(--tile);
+        }
+      }
+      @keyframes flash-div {
+        0% {
+          background: rgba(255, 215, 64, 0.65);
+          box-shadow: 0 0 30px rgba(255, 215, 64, 0.9);
+        }
+        100% {
+          background: var(--tile);
+        }
+      }
+      .cell.flash-add {
+        animation: flash-add 0.5s ease forwards;
+      }
+      .cell.flash-sub {
+        animation: flash-sub 0.5s ease forwards;
+      }
+      .cell.flash-mul {
+        animation: flash-mul 0.5s ease forwards;
+      }
+      .cell.flash-div {
+        animation: flash-div 0.5s ease forwards;
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0) scale(1.07);
+        }
+        20% {
+          transform: translateX(-8px) scale(1.07);
+        }
+        40% {
+          transform: translateX(8px) scale(1.07);
+        }
+        60% {
+          transform: translateX(-6px) scale(1.07);
+        }
+        80% {
+          transform: translateX(6px) scale(1.07);
+        }
+      }
+      .cell.shake {
+        animation: shake 0.4s ease;
+        border-color: var(--sub-color) !important;
+      }
+
+      /* Stats */
+      .stats-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+      .stat {
+        text-align: center;
+        flex: 1;
+      }
+      .stat-val {
+        font-family: "Orbitron", monospace;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .stat-label {
+        font-size: 0.6rem;
+        color: var(--muted);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .stat-divider {
+        width: 1px;
+        height: 30px;
+        background: var(--tile-border);
+      }
+
+      #msg {
+        font-size: 0.78rem;
+        color: var(--muted);
+        letter-spacing: 0.5px;
+        text-align: center;
+        min-height: 1.2em;
+        transition: color 0.2s;
+      }
+      #msg.err {
+        color: var(--sub-color);
+      }
+      #msg.ok {
+        color: var(--add-color);
+      }
+
+      .btn-row {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+      }
+      .btn {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid var(--tile-border);
+        border-radius: 12px;
+        background: var(--panel);
+        color: var(--muted);
+        font-family: "Rajdhani", sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.18s;
+      }
+      .btn:active {
+        transform: scale(0.97);
+      }
+      .btn:hover {
+        border-color: var(--selected);
+        color: var(--selected);
+        background: rgba(79, 195, 247, 0.05);
+      }
+      .btn.primary {
+        border-color: var(--add-color);
+        color: var(--bg);
+        background: var(--add-color);
+      }
+      .btn.primary:hover {
+        background: #00c766;
+        box-shadow: 0 0 16px rgba(0, 230, 118, 0.4);
+        color: var(--bg);
+        border-color: #00c766;
+      }
+
+      /* Map Overlay */
+      #map-overlay {
+        position: fixed;
+        inset: 0;
+        background: var(--bg);
+        display: none;
+        flex-direction: column;
+        z-index: 200;
+        overflow-y: auto;
+        padding: 24px 16px 40px;
+      }
+      #map-overlay.show {
+        display: flex;
+      }
+      .map-header-wrap {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+      }
+      .map-title {
+        font-family: "Orbitron", monospace;
+        font-size: 1.8rem;
+        color: #fff;
+      }
+      .close-map {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 2rem;
+        cursor: pointer;
+      }
+
+      .tier-section {
+        margin-bottom: 30px;
+        background: var(--panel);
+        border: 1px solid var(--tile-border);
+        border-radius: 16px;
+        padding: 16px;
+      }
+      .tier-title {
+        font-size: 1rem;
+        color: var(--selected);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+        border-bottom: 1px solid var(--tile-border);
+        padding-bottom: 8px;
+      }
+      .level-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        gap: 10px;
+      }
+
+      .map-lvl-btn {
+        aspect-ratio: 1;
+        border: 1px solid var(--tile-border);
+        background: var(--tile);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--text);
+        font-family: "Orbitron", monospace;
+        font-weight: 700;
+        font-size: 1.2rem;
+        position: relative;
+        transition: all 0.2s;
+      }
+      .map-lvl-btn:active {
+        transform: scale(0.9);
+      }
+      .map-lvl-btn.completed {
+        border-color: var(--add-color);
+        background: rgba(0, 230, 118, 0.05);
+      }
+      .map-lvl-btn.completed::after {
+        content: "✓";
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: var(--add-color);
+        color: #000;
+        font-size: 0.7rem;
+        width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+      }
+      .map-lvl-btn .best-score {
+        font-family: "Rajdhani", sans-serif;
+        font-size: 0.6rem;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      /* Win overlay */
+      #win-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(8, 12, 20, 0.95);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        backdrop-filter: blur(8px);
+        gap: 20px;
+        padding: 24px;
+      }
+      #win-overlay.show {
+        display: flex;
+      }
+      .win-icon {
+        font-size: 4.5rem;
+        animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      @keyframes popIn {
+        0% {
+          transform: scale(0);
+          opacity: 0;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .win-title {
+        font-family: "Orbitron", monospace;
+        font-size: clamp(2.2rem, 9vw, 3rem);
+        font-weight: 900;
+        background: linear-gradient(135deg, #00e676, #ffea00);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        filter: drop-shadow(0 0 20px rgba(0, 230, 118, 0.6));
+        text-transform: uppercase;
+        animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+
+      .win-btn-row {
+        display: flex;
+        gap: 14px;
+        width: 100%;
+        max-width: 320px;
+        margin-top: 10px;
+      }
+
+      /* Confetti Styles */
+      .confetti-wrap {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 99;
+        overflow: hidden;
+      }
+      .confetti-piece {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        opacity: 0;
+      }
+      @keyframes confetti-burst {
+        0% {
+          transform: translate3d(0, 0, 0) rotate(0deg) scale(0);
+          opacity: 1;
+        }
+        80% {
+          opacity: 1;
+        }
+        100% {
+          transform: translate3d(var(--tx), var(--ty), 0) rotate(720deg)
+            scale(1);
+          opacity: 0;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .wrapper {
+          padding: 12px 8px 20px;
+          gap: 10px;
+        }
+        :root {
+          --gap: 6px;
+          --tile-radius: 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="top-bar">
+        <button class="map-btn" onclick="openMap()">🗺 Map</button>
+        <div class="progress-counter" id="progress-text">
+          Level <span>1</span>/15
+        </div>
+      </div>
+
+      <header>
+        <div class="game-title">VECTORSHIFT</div>
+      </header>
+
+      <div class="target-panel">
+        <div class="target-label">Target Number</div>
+        <div class="target-number" id="target-display">24</div>
+      </div>
+
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-arrow add-clr">→</div>
+          <div class="legend-op add-clr">+</div>
+          <div class="legend-dir">Add</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-arrow sub-clr">←</div>
+          <div class="legend-op sub-clr">−</div>
+          <div class="legend-dir">Sub</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-arrow mul-clr">↓</div>
+          <div class="legend-op mul-clr">×</div>
+          <div class="legend-dir">Mul</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-arrow div-clr">↑</div>
+          <div class="legend-op div-clr">÷</div>
+          <div class="legend-dir">Div</div>
+        </div>
+      </div>
+
+      <div class="board-wrap" id="board-wrap" data-cols="3">
+        <div id="board"></div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-val" id="moves-display">0</div>
+          <div class="stat-label">Moves</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <div class="stat-val" id="tiles-display">4</div>
+          <div class="stat-label">Tiles</div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat">
+          <div class="stat-val" id="best-display">—</div>
+          <div class="stat-label">Best</div>
+        </div>
+      </div>
+
+      <div id="msg">Tap any numbered tile to select it.</div>
+
+      <div class="btn-row">
+        <button class="btn" onclick="undoMove()">↩ Undo</button>
+        <button
+          class="btn"
+          style="border-color: var(--muted); color: var(--text)"
+          onclick="resetBoard()"
+        >
+          ↺ Reset
+        </button>
+      </div>
+    </div>
+
+    <div id="map-overlay">
+      <div class="map-header-wrap">
+        <div class="map-title">LEVEL SELECT</div>
+        <button class="close-map" onclick="closeMap()">×</button>
+      </div>
+      <div id="map-content"></div>
+    </div>
+
+    <div id="win-overlay">
+      <div class="win-icon">🎉</div>
+      <div class="win-title">Correct !!</div>
+      <div class="stat" style="margin-top: -10px; margin-bottom: 10px">
+        <div
+          class="stat-val"
+          id="win-moves"
+          style="font-size: 2.2rem; color: #00e676"
+        >
+          0
+        </div>
+        <div class="stat-label" style="font-size: 0.8rem">Moves Used</div>
+      </div>
+      <div class="win-btn-row">
+        <button class="btn" onclick="closeWin()" style="flex: 0.5">
+          ↺ Retry
+        </button>
+        <button
+          class="btn primary"
+          onclick="nextLevel()"
+          style="font-size: 1.1rem"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+
+    <div class="confetti-wrap" id="confetti"></div>
+
+    <script>
+      // ─── LEVELS DATA (15 Levels scaled by difficulty) ───────────────────────────
+      const LEVELS = [
+        // TIER 1: 3x3 Grid, Target < 100
+        {
+          tier: 1,
+          cols: 3,
+          rows: 3,
+          target: 24,
+          hint: "Right is Add, Down is Multiply.",
+          grid: [
+            [6, 2, null],
+            [3, null, null],
+            [2, null, null],
+          ],
+        },
+        {
+          tier: 1,
+          cols: 3,
+          rows: 3,
+          target: 15,
+          hint: "Combine carefully.",
+          grid: [
+            [5, 3, null],
+            [null, 4, null],
+            [2, null, 1],
+          ],
+        },
+        {
+          tier: 1,
+          cols: 3,
+          rows: 3,
+          target: 48,
+          hint: "Build it up.",
+          grid: [
+            [2, 6, null],
+            [null, 4, null],
+            [3, null, 2],
+          ],
+        },
+        {
+          tier: 1,
+          cols: 3,
+          rows: 3,
+          target: 7,
+          hint: "Division (Up) is key.",
+          grid: [
+            [14, 3, null],
+            [2, 5, null],
+            [null, 1, 4],
+          ],
+        },
+        {
+          tier: 1,
+          cols: 3,
+          rows: 3,
+          target: 36,
+          hint: "Plan ahead.",
+          grid: [
+            [9, 4, 2],
+            [3, null, 6],
+            [null, 5, null],
+          ],
+        },
+
+        // TIER 2: 4x4 Grid, 100 < Target < 200
+        {
+          tier: 2,
+          cols: 4,
+          rows: 4,
+          target: 120,
+          hint: "Welcome to 4x4. Target is higher.",
+          grid: [
+            [5, 2, null, null],
+            [null, 6, null, 2],
+            [3, null, 4, null],
+            [null, null, 2, null],
+          ],
+        },
+        {
+          tier: 2,
+          cols: 4,
+          rows: 4,
+          target: 144,
+          hint: "Use subtraction to setup multiplication.",
+          grid: [
+            [10, 2, null, 4],
+            [null, null, 6, null],
+            [3, null, null, 2],
+            [null, 5, null, null],
+          ],
+        },
+        {
+          tier: 2,
+          cols: 4,
+          rows: 4,
+          target: 108,
+          hint: "Keep an eye on the final multiplier.",
+          grid: [
+            [null, 12, null, 3],
+            [4, null, 2, null],
+            [null, 6, null, 1],
+            [2, null, 3, null],
+          ],
+        },
+        {
+          tier: 2,
+          cols: 4,
+          rows: 4,
+          target: 150,
+          hint: "Big numbers require big moves.",
+          grid: [
+            [25, 3, null, null],
+            [null, 2, 5, null],
+            [4, null, null, 6],
+            [null, null, 2, 1],
+          ],
+        },
+        {
+          tier: 2,
+          cols: 4,
+          rows: 4,
+          target: 192,
+          hint: "Maximum Tier 2 challenge.",
+          grid: [
+            [8, 3, null, 2],
+            [null, null, 4, null],
+            [6, null, null, 3],
+            [null, 2, 4, null],
+          ],
+        },
+
+        // TIER 3: 5x5 Grid, 100 < Target < 200
+        {
+          tier: 3,
+          cols: 5,
+          rows: 5,
+          target: 125,
+          hint: "Welcome to 5x5. The board is huge.",
+          grid: [
+            [10, 5, null, null, 2],
+            [null, null, 3, null, null],
+            [4, null, null, 5, null],
+            [null, 2, null, null, 1],
+            [null, null, 3, 2, null],
+          ],
+        },
+        {
+          tier: 3,
+          cols: 5,
+          rows: 5,
+          target: 180,
+          hint: "Clear the noise, find the path.",
+          grid: [
+            [15, 3, null, 2, null],
+            [null, null, 4, null, 6],
+            [2, null, null, 3, null],
+            [null, 5, null, null, 2],
+            [3, null, 2, 1, null],
+          ],
+        },
+        {
+          tier: 3,
+          cols: 5,
+          rows: 5,
+          target: 164,
+          hint: "Division can save you.",
+          grid: [
+            [40, 4, null, null, 3],
+            [null, null, 6, 2, null],
+            [5, null, null, null, 4],
+            [null, 3, null, 2, null],
+            [2, null, 1, null, 5],
+          ],
+        },
+        {
+          tier: 3,
+          cols: 5,
+          rows: 5,
+          target: 196,
+          hint: "Set up the perfect square.",
+          grid: [
+            [14, 2, null, 5, null],
+            [null, null, 3, null, 2],
+            [6, null, null, 4, null],
+            [null, 2, 7, null, null],
+            [3, null, null, 2, 1],
+          ],
+        },
+        {
+          tier: 3,
+          cols: 5,
+          rows: 5,
+          target: 200,
+          hint: "The Final Test.",
+          grid: [
+            [20, 2, null, null, 5],
+            [null, null, 4, 2, null],
+            [5, null, null, null, 3],
+            [null, 4, null, 2, null],
+            [2, null, 3, null, 4],
+          ],
+        },
+      ];
+
+      // ─── STATE & LOCAL STORAGE ──────────────────────────────────────────────────
+      const STORAGE_KEY = "vectorShiftData_v1";
+      let userData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+        completed: [],
+        bests: {},
+      };
+
+      let currentLevel = 0;
+      let grid = [];
+      let selected = null;
+      let moves = 0;
+      let history = [];
+
+      function saveData() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
+      }
+
+      // ─── INIT ───────────────────────────────────────────────────────────────────
+      function init() {
+        let startLvl = 0;
+        for (let i = 0; i < LEVELS.length; i++) {
+          if (!userData.completed.includes(i)) {
+            startLvl = i;
+            break;
           }
         }
-
-        const numEl = document.createElement('div');
-        numEl.classList.add('num');
-        numEl.textContent = val;
-        cell.appendChild(numEl);
+        if (startLvl >= LEVELS.length) startLvl = LEVELS.length - 1;
+        loadLevel(startLvl);
+        buildMapUI();
       }
 
-      cell.addEventListener('click', () => handleTap(r, c));
-      board.appendChild(cell);
-    }
-  }
-}
+      function loadLevel(idx) {
+        currentLevel = idx;
+        resetBoard();
+        updateProgressText();
+      }
 
-// ─── CHESS-STYLE TAP HANDLER ─────────────────────────────────────────────────
-function handleTap(r, c) {
-  const val = grid[r][c];
+      // Fixed progress counter to show current level / 15
+      function updateProgressText() {
+        document.getElementById("progress-text").innerHTML =
+          `Level <span>${currentLevel + 1}</span>/15`;
+      }
 
-  // ── No tile selected yet ──
-  if (!selected) {
-    if (val !== null) {
-      selected = {r, c};
-      setMsg('Tap a highlighted cell to move there.');
-      render();
-    }
-    return;
-  }
+      function resetBoard() {
+        const lvl = LEVELS[currentLevel];
+        grid = lvl.grid.map((row) => [...row]);
+        selected = null;
+        moves = 0;
+        history = [];
 
-  // ── Tap same tile → deselect ──
-  if (selected.r===r && selected.c===c) {
-    selected = null;
-    setMsg(LEVELS[currentLevel].hint);
-    render();
-    return;
-  }
+        document.getElementById("target-display").textContent = lvl.target;
 
-  const dr = r - selected.r;
-  const dc = c - selected.c;
-  const isAdj = (Math.abs(dr)+Math.abs(dc)) === 1;
+        const wrap = document.getElementById("board-wrap");
+        wrap.dataset.cols = lvl.cols;
+        document.getElementById("board").style.setProperty("--cols", lvl.cols);
 
-  // ── Tap a non-adjacent tile → re-select it ──
-  if (!isAdj) {
-    if (val !== null) {
-      selected = {r, c};
-      setMsg('Tap a highlighted cell to move there.');
-      render();
-    }
-    // Tap on a non-adjacent empty cell → ignore silently
-    return;
-  }
+        setMsg(lvl.hint);
+        render();
+        updateStats();
+        document.getElementById("win-overlay").classList.remove("show");
+        clearConfetti();
+      }
 
-  // ── Adjacent cell ──
-  doMove(selected.r, selected.c, r, c, dr, dc);
-}
+      // ─── OP LOGIC ────────────────────────────────────────────────────────────────
+      function calcOp(movingVal, destVal, dr, dc) {
+        if (dc === 1) {
+          return {
+            opKey: "add",
+            sym: "+",
+            result: destVal + movingVal,
+            valid: true,
+          };
+        }
+        if (dc === -1) {
+          return {
+            opKey: "sub",
+            sym: "−",
+            result: destVal - movingVal,
+            valid: true,
+          };
+        }
+        if (dr === 1) {
+          return {
+            opKey: "mul",
+            sym: "×",
+            result: destVal * movingVal,
+            valid: true,
+          };
+        }
+        if (dr === -1) {
+          const valid = movingVal !== 0 && destVal % movingVal === 0;
+          return {
+            opKey: "div",
+            sym: "÷",
+            result: valid ? destVal / movingVal : null,
+            valid,
+          };
+        }
+      }
 
-function doMove(fr, fc, tr, tc, dr, dc) {
-  const movingVal = grid[fr][fc];
-  const destVal   = grid[tr][tc];
+      // ─── RENDER ─────────────────────────────────────────────────────────────────
+      function render() {
+        const board = document.getElementById("board");
+        board.innerHTML = "";
+        const lvl = LEVELS[currentLevel];
 
-  if (destVal === null) {
-    // Move to empty
-    pushHistory();
-    grid[tr][tc] = movingVal;
-    grid[fr][fc] = null;
-    moves++;
-    selected = null;
-    setMsg(LEVELS[currentLevel].hint);
-    render();
-    updateStats();
-    checkWin();
-    return;
-  }
+        let adjInfo = {};
+        if (selected) {
+          const { r, c } = selected;
+          const movingVal = grid[r][c];
+          [
+            [r - 1, c, -1, 0],
+            [r + 1, c, 1, 0],
+            [r, c - 1, 0, -1],
+            [r, c + 1, 0, 1],
+          ].forEach(([ar, ac, dr, dc]) => {
+            if (ar < 0 || ar >= lvl.rows || ac < 0 || ac >= lvl.cols) return;
+            const destVal = grid[ar][ac];
+            const isEmpty = destVal === null;
+            let info = { isEmpty };
+            if (!isEmpty)
+              Object.assign(info, calcOp(movingVal, destVal, dr, dc));
+            adjInfo[`${ar},${ac}`] = info;
+          });
+        }
 
-  // Merge
-  const {opKey, sym, result, valid} = calcOp(movingVal, destVal, dr, dc);
-  const flashCls = `flash-${opKey}`;
+        for (let r = 0; r < lvl.rows; r++) {
+          for (let c = 0; c < lvl.cols; c++) {
+            const val = grid[r][c];
+            const cell = document.createElement("div");
+            cell.dataset.r = r;
+            cell.dataset.c = c;
+            cell.classList.add("cell");
 
-  if (!valid) {
-    shakeCell(fr, fc);
-    setMsg(`✕ Can't divide: ${destVal} ÷ ${movingVal} is not a whole number!`, 'err');
-    return;
-  }
+            const key = `${r},${c}`;
+            const isSelected = selected && selected.r === r && selected.c === c;
+            const adjData = adjInfo[key];
 
-  pushHistory();
-  grid[tr][tc] = result;
-  grid[fr][fc] = null;
-  moves++;
-  selected = null;
+            if (val === null) {
+              cell.classList.add("empty");
+              if (adjData && adjData.isEmpty) {
+                cell.classList.add("can-move-here");
+                cell.classList.remove("empty");
+              }
+            } else {
+              cell.classList.add("tile");
+              if (isSelected) cell.classList.add("selected");
+              else if (adjData && !adjData.isEmpty) {
+                const { opKey, sym, result, valid } = adjData;
+                cell.classList.add(`op-${opKey}`);
 
-  render();
-  flashCell(tr, tc, flashCls);
-  setMsg(`✓  ${destVal} ${sym} ${movingVal} = ${result}`, 'ok');
-  updateStats();
-  checkWin();
-}
+                const badge = document.createElement("div");
+                badge.classList.add("op-badge", opKey);
+                badge.textContent = sym;
+                cell.appendChild(badge);
 
-// ─── HELPERS ────────────────────────────────────────────────────────────────
-function flashCell(r, c, cls) {
-  const cells = document.querySelectorAll('.cell');
-  const idx = r*3+c;
-  if (!cells[idx]) return;
-  cells[idx].classList.add(cls);
-  setTimeout(()=>cells[idx].classList.remove(cls), 500);
-}
+                const preview = document.createElement("div");
+                preview.classList.add("preview-val");
+                if (valid && result !== null) {
+                  preview.style.color = getComputedStyle(
+                    document.documentElement,
+                  ).getPropertyValue(`--${opKey}-color`);
+                  preview.textContent = `= ${result}`;
+                } else if (!valid) {
+                  preview.style.color = "var(--sub-color)";
+                  preview.textContent = "✕";
+                }
+                cell.appendChild(preview);
+              }
 
-function shakeCell(r, c) {
-  const cells = document.querySelectorAll('.cell');
-  const idx = r*3+c;
-  if (!cells[idx]) return;
-  cells[idx].classList.remove('shake');
-  void cells[idx].offsetWidth;
-  cells[idx].classList.add('shake');
-  setTimeout(()=>cells[idx].classList.remove('shake'), 400);
-}
+              const numEl = document.createElement("div");
+              numEl.classList.add("num");
+              numEl.textContent = val;
+              cell.appendChild(numEl);
+            }
 
-function setMsg(text, type='') {
-  const el = document.getElementById('msg');
-  el.textContent = text;
-  el.className = type;
-}
+            cell.addEventListener("click", () => handleTap(r, c));
+            board.appendChild(cell);
+          }
+        }
+      }
 
-function updateStats() {
-  document.getElementById('moves-display').textContent = moves;
-  const remaining = grid.flat().filter(v=>v!==null).length;
-  document.getElementById('tiles-display').textContent = remaining;
-  const best = bests[currentLevel];
-  document.getElementById('best-display').textContent = best !== undefined ? best : '—';
-}
+      // ─── CHESS-STYLE TAP HANDLER ─────────────────────────────────────────────────
+      function handleTap(r, c) {
+        const val = grid[r][c];
 
-function pushHistory() {
-  history.push(grid.map(row=>[...row]));
-}
+        if (!selected) {
+          if (val !== null) {
+            selected = { r, c };
+            setMsg("Tap a highlighted cell to move there.");
+            render();
+          }
+          return;
+        }
 
-function undoMove() {
-  if (!history.length) { setMsg('Nothing to undo!','err'); return; }
-  grid = history.pop();
-  if (moves>0) moves--;
-  selected = null;
-  render(); updateStats();
-  setMsg('Undone ↩');
-}
+        if (selected.r === r && selected.c === c) {
+          selected = null;
+          setMsg(LEVELS[currentLevel].hint);
+          render();
+          return;
+        }
 
-// ─── WIN CHECK ───────────────────────────────────────────────────────────────
-function checkWin() {
-  const tiles = grid.flat().filter(v=>v!==null);
-  if (tiles.length===1 && tiles[0]===LEVELS[currentLevel].target) {
-    if (bests[currentLevel]===undefined || moves<bests[currentLevel]) bests[currentLevel]=moves;
-    updateStats();
-    document.getElementById('win-moves').textContent = moves;
-    setTimeout(()=>{ document.getElementById('win-overlay').classList.add('show'); spawnConfetti(); }, 400);
-  }
-}
+        const dr = r - selected.r;
+        const dc = c - selected.c;
+        const isAdj = Math.abs(dr) + Math.abs(dc) === 1;
 
-function closeWin() {
-  document.getElementById('win-overlay').classList.remove('show');
-  clearConfetti(); resetBoard();
-}
+        if (!isAdj) {
+          if (val !== null) {
+            selected = { r, c };
+            setMsg("Tap a highlighted cell to move there.");
+            render();
+          }
+          return;
+        }
 
-function nextLevel() {
-  document.getElementById('win-overlay').classList.remove('show');
-  clearConfetti();
-  loadLevel(Math.min(currentLevel+1, LEVELS.length-1));
-}
+        doMove(selected.r, selected.c, r, c, dr, dc);
+      }
 
-// ─── CONFETTI ────────────────────────────────────────────────────────────────
-const CC = ['#00e676','#4fc3f7','#448aff','#ffd740','#ff5252','#e040fb'];
-function spawnConfetti() {
-  const wrap = document.getElementById('confetti');
-  for (let i=0;i<60;i++) {
-    const el = document.createElement('div');
-    el.classList.add('confetti-piece');
-    el.style.left = Math.random()*100+'vw';
-    el.style.background = CC[Math.floor(Math.random()*CC.length)];
-    el.style.animationDuration = (1.5+Math.random()*2)+'s';
-    el.style.animationDelay = (Math.random()*0.8)+'s';
-    el.style.width = el.style.height = (6+Math.random()*6)+'px';
-    wrap.appendChild(el);
-  }
-}
-function clearConfetti() { document.getElementById('confetti').innerHTML=''; }
+      function doMove(fr, fc, tr, tc, dr, dc) {
+        const movingVal = grid[fr][fc];
+        const destVal = grid[tr][tc];
 
-// ─── START ───────────────────────────────────────────────────────────────────
-loadLevel(0);
-</script>
-</body>
+        if (destVal === null) {
+          pushHistory();
+          grid[tr][tc] = movingVal;
+          grid[fr][fc] = null;
+          moves++;
+          selected = null;
+          setMsg(LEVELS[currentLevel].hint);
+          render();
+          updateStats();
+          checkWin();
+          return;
+        }
+
+        const { opKey, sym, result, valid } = calcOp(
+          movingVal,
+          destVal,
+          dr,
+          dc,
+        );
+        const flashCls = `flash-${opKey}`;
+
+        if (!valid) {
+          shakeCell(fr, fc);
+          setMsg(
+            `✕ Can't divide: ${destVal} ÷ ${movingVal} is not a whole number!`,
+            "err",
+          );
+          return;
+        }
+
+        pushHistory();
+        grid[tr][tc] = result;
+        grid[fr][fc] = null;
+        moves++;
+        selected = null;
+
+        render();
+        flashCell(tr, tc, flashCls);
+        setMsg(`✓  ${destVal} ${sym} ${movingVal} = ${result}`, "ok");
+        updateStats();
+        checkWin();
+      }
+
+      function flashCell(r, c, cls) {
+        const cells = document.querySelectorAll(".cell");
+        const idx = r * LEVELS[currentLevel].cols + c;
+        if (!cells[idx]) return;
+        cells[idx].classList.add(cls);
+        setTimeout(() => cells[idx].classList.remove(cls), 500);
+      }
+
+      function shakeCell(r, c) {
+        const cells = document.querySelectorAll(".cell");
+        const idx = r * LEVELS[currentLevel].cols + c;
+        if (!cells[idx]) return;
+        cells[idx].classList.remove("shake");
+        void cells[idx].offsetWidth;
+        cells[idx].classList.add("shake");
+        setTimeout(() => cells[idx].classList.remove("shake"), 400);
+      }
+
+      function setMsg(text, type = "") {
+        const el = document.getElementById("msg");
+        el.textContent = text;
+        el.className = type;
+      }
+
+      function updateStats() {
+        document.getElementById("moves-display").textContent = moves;
+        const remaining = grid.flat().filter((v) => v !== null).length;
+        document.getElementById("tiles-display").textContent = remaining;
+        const best = userData.bests[currentLevel];
+        document.getElementById("best-display").textContent =
+          best !== undefined ? best : "—";
+      }
+
+      function pushHistory() {
+        history.push(grid.map((row) => [...row]));
+      }
+
+      function undoMove() {
+        if (!history.length) {
+          setMsg("Nothing to undo!", "err");
+          return;
+        }
+        grid = history.pop();
+        if (moves > 0) moves--;
+        selected = null;
+        render();
+        updateStats();
+        setMsg("Undone ↩");
+      }
+
+      // ─── WIN CHECK & MAP SYSTEM (FIXED) ──────────────────────────────────────────
+      function checkWin() {
+        // Get all numbers currently on the board
+        const tiles = grid.flat().filter((v) => v !== null);
+
+        // NEW WIN RULE: If ANY tile on the board matches the target number, you instantly win!
+        if (tiles.includes(LEVELS[currentLevel].target)) {
+          // Save Progress
+          if (!userData.completed.includes(currentLevel)) {
+            userData.completed.push(currentLevel);
+          }
+          if (
+            userData.bests[currentLevel] === undefined ||
+            moves < userData.bests[currentLevel]
+          ) {
+            userData.bests[currentLevel] = moves;
+          }
+          saveData();
+          buildMapUI();
+
+          // Force the progress text to update immediately
+          updateProgressText();
+
+          updateStats();
+          document.getElementById("win-moves").textContent = moves;
+
+          // Show the Correct !! pop-up and Confetti
+          setTimeout(() => {
+            document.getElementById("win-overlay").classList.add("show");
+            spawnConfetti();
+          }, 400);
+        }
+      }
+
+      function closeWin() {
+        document.getElementById("win-overlay").classList.remove("show");
+        clearConfetti();
+        resetBoard();
+      }
+
+      function nextLevel() {
+        document.getElementById("win-overlay").classList.remove("show");
+        clearConfetti();
+        loadLevel(Math.min(currentLevel + 1, LEVELS.length - 1));
+      }
+
+      function openMap() {
+        document.getElementById("map-overlay").classList.add("show");
+      }
+      function closeMap() {
+        document.getElementById("map-overlay").classList.remove("show");
+      }
+
+      function buildMapUI() {
+        const cont = document.getElementById("map-content");
+        cont.innerHTML = "";
+
+        const tiers = [
+          { tier: 1, name: "Tier 1: 3x3 Grid (Targets < 100)" },
+          { tier: 2, name: "Tier 2: 4x4 Grid (100 < Targets < 200)" },
+          { tier: 3, name: "Tier 3: 5x5 Grid (100 < Targets < 200)" },
+        ];
+
+        tiers.forEach((t) => {
+          const sec = document.createElement("div");
+          sec.className = "tier-section";
+          sec.innerHTML = `<div class="tier-title">${t.name}</div><div class="level-grid" id="tier-grid-${t.tier}"></div>`;
+          cont.appendChild(sec);
+        });
+
+        LEVELS.forEach((lvl, idx) => {
+          const gridEl = document.getElementById(`tier-grid-${lvl.tier}`);
+          const btn = document.createElement("div");
+          btn.className = `map-lvl-btn ${userData.completed.includes(idx) ? "completed" : ""}`;
+          btn.innerHTML = `${idx + 1}`;
+
+          const bestScore = userData.bests[idx];
+          if (bestScore !== undefined) {
+            btn.innerHTML += `<div class="best-score">${bestScore} moves</div>`;
+          }
+
+          btn.onclick = () => {
+            closeMap();
+            loadLevel(idx);
+          };
+          gridEl.appendChild(btn);
+        });
+      }
+
+      // ─── CONFETTI (Party Burst Animation) ────────────────────────────────────────
+      const CC = [
+        "#00e676",
+        "#4fc3f7",
+        "#448aff",
+        "#ffd740",
+        "#ff5252",
+        "#e040fb",
+        "#ffffff",
+      ];
+      function spawnConfetti() {
+        const wrap = document.getElementById("confetti");
+        wrap.innerHTML = "";
+        for (let i = 0; i < 70; i++) {
+          const el = document.createElement("div");
+          el.classList.add("confetti-piece");
+          el.style.left = "50%";
+          el.style.top = "40%";
+          el.style.background = CC[Math.floor(Math.random() * CC.length)];
+
+          const angle = Math.random() * Math.PI * 2;
+          const velocity = 20 + Math.random() * 80;
+          const tx = Math.cos(angle) * velocity + "vw";
+          const ty = Math.sin(angle) * velocity + "vh";
+
+          el.style.setProperty("--tx", tx);
+          el.style.setProperty("--ty", ty);
+          el.style.animation = `confetti-burst ${1 + Math.random() * 1.5}s cubic-bezier(0.25, 1, 0.5, 1) forwards`;
+
+          wrap.appendChild(el);
+        }
+      }
+      function clearConfetti() {
+        document.getElementById("confetti").innerHTML = "";
+      }
+
+      init();
+    </script>
+  </body>
 </html>
