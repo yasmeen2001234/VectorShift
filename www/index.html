@@ -1058,6 +1058,53 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify(userData));
       }
 
+      // 1. Extract AdMob from the global Capacitor object
+      const { AdMob } = Capacitor.Plugins;
+
+      // 2. Set the 20-minute timer (20 minutes * 60 seconds * 1000 milliseconds)
+      const AD_INTERVAL_MS = 20 * 60 * 1000;
+
+      // 3. Define the Test Interstitial ID
+      // (Change isTesting to false and swap the adId when ready for production)
+      const interstitialOptions = {
+        adId: "ca-app-pub-3940256099942544/1033173712",
+        isTesting: true,
+      };
+
+      // 4. Initialize AdMob and start the ad loop
+      async function initializeGameAds() {
+        try {
+          // Initialize the AdMob SDK
+          await AdMob.initialize({
+            requestTrackingAuthorization: true,
+            initializeForTesting: true,
+          });
+
+          console.log("AdMob Initialized Successfully");
+
+          // Pre-load the very first ad in the background
+          await AdMob.prepareInterstitial(interstitialOptions);
+
+          // Start the 20-minute recurring timer
+          setInterval(async () => {
+            // Show the ad
+            await AdMob.showInterstitial();
+            // Immediately pre-load the next ad so it's ready for next time
+            await AdMob.prepareInterstitial(interstitialOptions);
+          }, AD_INTERVAL_MS);
+        } catch (error) {
+          console.error("AdMob Setup Error:", error);
+        }
+      }
+
+      // 5. Call the function to start the process as soon as the game loads
+      document.addEventListener("DOMContentLoaded", () => {
+        // Only run AdMob if Capacitor is actually injected (i.e., running on a phone)
+        if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+          initializeGameAds();
+        }
+      });
+
       // ─── INIT ───────────────────────────────────────────────────────────────────
       function init() {
         let startLvl = 0;

@@ -1,4 +1,4 @@
-package com.yourname.vectorshift;
+package com.YasmeenDevStudios.VectorShift;
 
 import com.getcapacitor.BridgeActivity;
 
