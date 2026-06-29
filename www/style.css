@@ -33,6 +33,14 @@
   background-clip: text;
   filter: drop-shadow(0 0 15px rgba(79, 195, 247, 0.3));
 }
+/* Mobile Adjustment for Title */
+@media (max-width: 480px) {
+  .menu-title-large {
+    font-size: 2.2rem;
+    margin-bottom: 2.5rem;
+  }
+}
+
 .menu-buttons {
   display: flex;
   flex-direction: column;
