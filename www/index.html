@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -52,8 +52,10 @@
         content: "";
         position: fixed;
         inset: 0;
-        background-image:
-          linear-gradient(rgba(79, 195, 247, 0.04) 1px, transparent 1px),
+        background-image: linear-gradient(
+            rgba(79, 195, 247, 0.04) 1px,
+            transparent 1px
+          ),
           linear-gradient(90deg, rgba(79, 195, 247, 0.04) 1px, transparent 1px);
         background-size: 40px 40px;
         pointer-events: none;
@@ -230,10 +232,7 @@
         justify-content: center;
         cursor: pointer;
         position: relative;
-        transition:
-          transform 0.12s,
-          box-shadow 0.15s,
-          border-color 0.15s,
+        transition: transform 0.12s, box-shadow 0.15s, border-color 0.15s,
           background 0.15s;
         user-select: none;
         -webkit-user-select: none;
@@ -249,8 +248,7 @@
       .cell.tile {
         background: var(--tile);
         border: 2px solid var(--tile-border);
-        box-shadow:
-          0 4px 12px rgba(0, 0, 0, 0.4),
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4),
           inset 0 1px 0 rgba(255, 255, 255, 0.05);
       }
 
@@ -272,10 +270,8 @@
 
       .cell.tile.selected {
         border-color: var(--selected);
-        box-shadow:
-          0 0 0 3px rgba(79, 195, 247, 0.3),
-          0 0 24px rgba(79, 195, 247, 0.35),
-          0 4px 12px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 0 0 3px rgba(79, 195, 247, 0.3),
+          0 0 24px rgba(79, 195, 247, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
         transform: scale(1.07);
         z-index: 2;
       }
@@ -1061,8 +1057,8 @@
       // 1. Extract AdMob from the global Capacitor object
       const { AdMob } = Capacitor.Plugins;
 
-      // 2. Set the 20-minute timer (20 minutes * 60 seconds * 1000 milliseconds)
-      const AD_INTERVAL_MS = 20 * 60 * 1000;
+      // 2. Set the 15-minute timer (15 minutes * 60 seconds * 1000 milliseconds)
+      const AD_INTERVAL_MS = 15 * 60 * 1000;
 
       // 3. Define the Test Interstitial ID
       // (Change isTesting to false and swap the adId when ready for production)
@@ -1127,8 +1123,9 @@
 
       // Fixed progress counter to show current level / 15
       function updateProgressText() {
-        document.getElementById("progress-text").innerHTML =
-          `Level <span>${currentLevel + 1}</span>/15`;
+        document.getElementById("progress-text").innerHTML = `Level <span>${
+          currentLevel + 1
+        }</span>/15`;
       }
 
       function resetBoard() {
@@ -1476,7 +1473,9 @@
         LEVELS.forEach((lvl, idx) => {
           const gridEl = document.getElementById(`tier-grid-${lvl.tier}`);
           const btn = document.createElement("div");
-          btn.className = `map-lvl-btn ${userData.completed.includes(idx) ? "completed" : ""}`;
+          btn.className = `map-lvl-btn ${
+            userData.completed.includes(idx) ? "completed" : ""
+          }`;
           btn.innerHTML = `${idx + 1}`;
 
           const bestScore = userData.bests[idx];
@@ -1519,7 +1518,9 @@
 
           el.style.setProperty("--tx", tx);
           el.style.setProperty("--ty", ty);
-          el.style.animation = `confetti-burst ${1 + Math.random() * 1.5}s cubic-bezier(0.25, 1, 0.5, 1) forwards`;
+          el.style.animation = `confetti-burst ${
+            1 + Math.random() * 1.5
+          }s cubic-bezier(0.25, 1, 0.5, 1) forwards`;
 
           wrap.appendChild(el);
         }
