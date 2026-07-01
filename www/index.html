@@ -147,33 +147,31 @@
     </div>
 
     <div id="win-overlay">
-      <div class="win-icon" id="win-icon-display">🎉</div>
-      <div class="win-title" id="win-title-display">Correct !!</div>
-      <div
-        class="stat"
-        style="margin-top: -10px; margin-bottom: 10px"
-        id="win-moves-container"
-      >
-        <div
-          class="stat-val"
-          id="win-moves"
-          style="font-size: 2.2rem; color: #00e676"
-        >
-          0
+      <div class="win-card">
+        <div class="win-icon" id="win-icon-display">🎉</div>
+        <div class="win-title" id="win-title-display">Correct !!</div>
+        <div class="stat win-moves-container" id="win-moves-container">
+          <div
+            class="stat-val"
+            id="win-moves"
+            style="font-size: 2.2rem; color: #00e676"
+          >
+            0
+          </div>
+          <div class="stat-label" style="font-size: 0.8rem">Moves Used</div>
         </div>
-        <div class="stat-label" style="font-size: 0.8rem">Moves Used</div>
-      </div>
-      <div class="win-btn-row" id="win-btn-row">
-        <button class="btn" onclick="closeWin()" style="flex: 0.5">
-          ↺ Retry
-        </button>
-        <button
-          class="btn primary"
-          onclick="nextLevel()"
-          style="font-size: 1.1rem"
-        >
-          Next
-        </button>
+        <div class="win-btn-row" id="win-btn-row">
+          <button class="btn" onclick="closeWin()" style="flex: 0.5">
+            ↺ Retry
+          </button>
+          <button
+            class="btn primary"
+            onclick="nextLevel()"
+            style="font-size: 1.1rem"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
 
